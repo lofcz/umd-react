@@ -21,6 +21,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
+            const semver = require('semver');
             const response = await fetch('https://registry.npmjs.org/react/latest');
             const data = await response.json();
             const reactVersion = data.version;
@@ -28,7 +29,7 @@ jobs:
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             
-            if (pkg.version !== reactVersion) {
+            if (semver.lt(pkg.version, reactVersion)) {
               console.log(`Updating version from ${pkg.version} to ${reactVersion}`);
               pkg.version = reactVersion;
               fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
