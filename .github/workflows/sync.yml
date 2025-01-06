@@ -13,7 +13,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Check React version
@@ -21,9 +21,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const fetch = await import('node-fetch');
-            
-            const response = await fetch.default('https://registry.npmjs.org/react/latest');
+            const response = await fetch('https://registry.npmjs.org/react/latest');
             const data = await response.json();
             const reactVersion = data.version;
             
