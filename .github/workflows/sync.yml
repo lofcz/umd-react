@@ -32,13 +32,18 @@ jobs:
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             
-            if (semver.lt(pkg.version, reactVersion)) {
+            const isNewer = semver.gt(reactVersion, pkg.version);
+            const isDowngradeFromPrerelease = pkg.version.includes('-') && semver.coerce(pkg.version).version === reactVersion;
+            
+            if (isNewer && !isDowngradeFromPrerelease) {
               console.log(`Updating version from ${pkg.version} to ${reactVersion}`);
               pkg.version = reactVersion;
               fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
               core.setOutput('newVersion', reactVersion);
               return 'updated';
             }
+            
+            console.log(`No update needed, master: ${pkg.version}, upstream: ${reactVersion}`);
             return 'unchanged';
 
       - name: Install dependencies
