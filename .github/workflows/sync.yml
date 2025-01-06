@@ -1,0 +1,63 @@
+name: Sync with React Release
+on:
+  schedule:
+    - cron: '0 0 * * *'  # daily
+  workflow_dispatch:     
+
+jobs:
+  sync-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Check React version
+        id: react-version
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fetch = await import('node-fetch');
+            
+            const response = await fetch.default('https://registry.npmjs.org/react/latest');
+            const data = await response.json();
+            const reactVersion = data.version;
+            
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            
+            if (pkg.version !== reactVersion) {
+              console.log(`Updating version from ${pkg.version} to ${reactVersion}`);
+              pkg.version = reactVersion;
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+              core.setOutput('newVersion', reactVersion);
+              return 'updated';
+            }
+            return 'unchanged';
+
+      - name: Install dependencies
+        if: steps.react-version.outputs.result == 'updated'
+        run: npm ci
+
+      - name: Build
+        if: steps.react-version.outputs.result == 'updated'
+        run: npm run build
+
+      - name: Publish to NPM
+        if: steps.react-version.outputs.result == 'updated'
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Commit and push if changed
+        if: steps.react-version.outputs.result == 'updated'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add package.json
+          git commit -m "chore: update version to match React ${{ steps.react-version.outputs.newVersion }}"
+          git push
