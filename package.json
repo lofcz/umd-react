@@ -1,6 +1,6 @@
 {
   "name": "umd-react",
-  "version": "19.0.0",
+  "version": "19.0.0-1",
   "description": "UMD builds for React 19+",
   "main": "index.js",
   "scripts": {
@@ -20,6 +20,11 @@
   "bugs": {
     "url": "https://github.com/lofcz/react19umd/issues"
   },
+  "files": [
+    "dist/",
+    "package.json",
+    "README.md"
+  ],
   "homepage": "https://github.com/lofcz/react19umd#readme",
   "devDependencies": {
     "@babel/preset-react": "^7.26.3",
