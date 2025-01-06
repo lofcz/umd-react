@@ -1,6 +1,6 @@
 {
-  "name": "react19umd",
-  "version": "1.0.0",
+  "name": "umd-react",
+  "version": "1.0.1",
   "description": "UMD builds for React 19+",
   "main": "index.js",
   "scripts": {
