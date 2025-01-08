@@ -16,3 +16,5 @@ Or via CDN:
 
 
 The files are built so that `ReactDOM` & `ReactDOMClient` are squished back into `ReactDOM` for backward compatibility.
+
+⭐ Files are built and published on NPM automatically (GitHub Workflow checks upstream daily) so this repository should always be synced with upstream until some major changes occur.
