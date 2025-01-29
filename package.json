@@ -3,6 +3,7 @@
   "version": "19.0.0-1",
   "description": "UMD builds for React 19+",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "build": "rollup -c rollup.config.react.js && rimraf dist/virtual.js",
     "test": "echo \"Error: no test specified\" && exit 1"

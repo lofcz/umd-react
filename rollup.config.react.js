@@ -176,8 +176,13 @@ const reactPlugin = {
                     ...commonConfig,
                     entry: entryFile,
                     externals: {
-                        'react': 'React'
-                    },
+                        'react': {
+                            root: 'React',        // <global>.React
+                            commonjs: 'react',    // require('react')
+                            commonjs2: 'react',   // require('react')
+                            amd: 'react'         // define(['react'], ...)
+                        }
+                    },                    
                     output: {
                         path: tempDistDir,
                         filename: 'react-dom.production.min.js',
@@ -200,8 +205,13 @@ const reactPlugin = {
                     ...commonConfig,
                     entry: 'react-dom',
                     externals: {
-                        'react': 'React'
-                    },
+                        'react': {
+                            root: 'React',        // <global>.React
+                            commonjs: 'react',    // require('react')
+                            commonjs2: 'react',   // require('react')
+                            amd: 'react'         // define(['react'], ...)
+                        }
+                    },                    
                     output: {
                         path: tempDistDir,
                         filename: 'react-dom.production.min.js',
