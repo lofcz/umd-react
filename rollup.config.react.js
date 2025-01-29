@@ -154,8 +154,11 @@ const reactPlugin = {
                 output: {
                     path: tempDistDir,
                     filename: 'react.production.min.js',
-                    library: 'React',
-                    libraryTarget: 'umd',
+                    library: {
+                        name: 'React',
+                        type: 'umd',
+                        umdNamedDefine: true
+                    },
                     globalObject: 'this',
                     iife: true,
                     environment: {
@@ -189,6 +192,7 @@ const reactPlugin = {
                         library: {
                             name: 'ReactDOM',
                             type: 'umd',
+                            umdNamedDefine: true,
                             export: undefined
                         },
                         globalObject: 'this',
@@ -215,8 +219,11 @@ const reactPlugin = {
                     output: {
                         path: tempDistDir,
                         filename: 'react-dom.production.min.js',
-                        library: 'ReactDOM',
-                        libraryTarget: 'umd',
+                        library: {
+                            name: 'ReactDOM',
+                            type: 'umd',
+                            umdNamedDefine: true
+                        },
                         globalObject: 'this',
                         iife: true
                     },
