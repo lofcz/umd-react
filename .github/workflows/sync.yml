@@ -1,20 +1,20 @@
 name: Sync with React Release
 on:
   schedule:
-    - cron: '0 0 * * *'  # daily
-  workflow_dispatch:     
+    - cron: "0 0 * * *" # daily
+  workflow_dispatch:
 
 jobs:
   sync-and-publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install semver
         run: npm install semver
@@ -23,28 +23,29 @@ jobs:
         id: react-version
         uses: actions/github-script@v6
         with:
+          result-encoding: string
           script: |
             const semver = require('semver');
             const response = await fetch('https://registry.npmjs.org/react/latest');
             const data = await response.json();
             const reactVersion = data.version;
-            
+
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            
+
             const isNewer = semver.gt(reactVersion, pkg.version);
             const isDowngradeFromPrerelease = pkg.version.includes('-') && semver.coerce(pkg.version).version === reactVersion;
-            
+
+            let result = 'unchanged';
             if (isNewer && !isDowngradeFromPrerelease) {
               console.log(`Updating version from ${pkg.version} to ${reactVersion}`);
               pkg.version = reactVersion;
               fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
               core.setOutput('newVersion', reactVersion);
-              return 'updated';
+              result = 'updated';
             }
-            
-            console.log(`No update needed, master: ${pkg.version}, upstream: ${reactVersion}`);
-            return 'unchanged';
+
+            return result;
 
       - name: Install dependencies
         if: steps.react-version.outputs.result == 'updated'
@@ -55,7 +56,7 @@ jobs:
         run: npm run build
 
       - name: Publish to NPM
-        if: steps.react-version.outputs.result == 'updated'
+        if: ${{ steps.react-version.outputs.result == 'updated' && env.NODE_AUTH_TOKEN != '' }}
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
