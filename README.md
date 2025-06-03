@@ -10,8 +10,13 @@ npm i umd-react
 
 Or via CDN:
 ```js
+// production:
 <script src="https://unpkg.com/umd-react/dist/react.production.min.js" />
 <script src="https://unpkg.com/umd-react/dist/react-dom.production.min.js" />
+
+// development:
+<script src="https://unpkg.com/umd-react/dist/react.development.js" />
+<script src="https://unpkg.com/umd-react/dist/react-dom.development.js" />
 ```
 
 
