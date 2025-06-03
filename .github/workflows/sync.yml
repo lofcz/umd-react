@@ -26,26 +26,57 @@ jobs:
           result-encoding: string
           script: |
             const semver = require('semver');
-            const response = await fetch('https://registry.npmjs.org/react/latest');
-            const data = await response.json();
-            const reactVersion = data.version;
-
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-
-            const isNewer = semver.gt(reactVersion, pkg.version);
-            const isDowngradeFromPrerelease = pkg.version.includes('-') && semver.coerce(pkg.version).version === reactVersion;
-
-            let result = 'unchanged';
-            if (isNewer && !isDowngradeFromPrerelease) {
-              console.log(`Updating version from ${pkg.version} to ${reactVersion}`);
-              pkg.version = reactVersion;
-              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-              core.setOutput('newVersion', reactVersion);
-              result = 'updated';
+            
+            try {
+              const response = await fetch('https://registry.npmjs.org/react');
+              const data = await response.json();
+              const reactVersion = data['dist-tags'].latest;
+              
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+              
+              console.log(`Current package version: "${pkg.version}"`);
+              console.log(`Latest React version: "${reactVersion}"`);
+              console.log(`Package version type: ${typeof pkg.version}`);
+              console.log(`React version type: ${typeof reactVersion}`);
+              
+              const isValidCurrent = semver.valid(pkg.version);
+              const isValidReact = semver.valid(reactVersion);
+              console.log(`Current version valid: ${isValidCurrent}`);
+              console.log(`React version valid: ${isValidReact}`);
+              
+              if (!isValidCurrent || !isValidReact) {
+                console.log('Invalid version detected, skipping update');
+                return 'unchanged';
+              }
+              
+              const isNewer = semver.gt(reactVersion, pkg.version);
+              const isDowngradeFromPrerelease = pkg.version.includes('-') && 
+                semver.coerce(pkg.version) && 
+                semver.eq(semver.coerce(pkg.version).version, reactVersion);
+              
+              console.log(`Is newer: ${isNewer}`);
+              console.log(`Is downgrade from prerelease: ${isDowngradeFromPrerelease}`);
+              console.log(`Condition result: ${isNewer && !isDowngradeFromPrerelease}`);
+              
+              let result = 'unchanged';
+              if (isNewer && !isDowngradeFromPrerelease) {
+                console.log(`✅ Updating version from ${pkg.version} to ${reactVersion}`);
+                pkg.version = reactVersion;
+                fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+                core.setOutput('newVersion', reactVersion);
+                result = 'updated';
+              } else {
+                console.log(`❌ No update needed. Reason: isNewer=${isNewer}, isDowngradeFromPrerelease=${isDowngradeFromPrerelease}`);
+              }
+              
+              console.log(`Final result: ${result}`);
+              return result;
+              
+            } catch (error) {
+              console.error('Error in version check:', error);
+              return 'unchanged';
             }
-
-            return result;
 
       - name: Install dependencies
         if: steps.react-version.outputs.result == 'updated'
