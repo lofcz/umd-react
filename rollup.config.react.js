@@ -68,7 +68,6 @@ async function executeNodeScript(scriptContent) {
     });
 }
 
-
 async function generateEntryFile(tempDir) {
     const scriptContent = `
         import * as ReactDOM from 'react-dom';
@@ -94,7 +93,7 @@ async function generateEntryFile(tempDir) {
         import * as ReactDOM from 'react-dom';
         import * as ReactDOMClient from 'react-dom/client';
 
-        // export clint methods
+        // export client methods
         ${clientOnlyMethods.map(method =>
         `export const ${method} = ReactDOMClient.${method};`
     ).join('\n')}
@@ -110,6 +109,125 @@ async function generateEntryFile(tempDir) {
     return entryFile;
 }
 
+async function buildReactFiles(mode, tempDistDir, tempDir) {
+    const isProduction = mode === 'production';
+    const suffix = isProduction ? '.production.min' : '.development';
+    
+    const commonConfig = {
+        mode: mode,
+        optimization: {
+            minimize: isProduction,
+            usedExports: true
+        },
+        resolve: {
+            extensions: ['.js', '.jsx']
+        },
+        module: {
+            rules: [
+                {
+                    test: /\.jsx?$/,
+                    exclude: /node_modules/,
+                    use: {
+                        loader: 'babel-loader',
+                        options: {
+                            presets: ['@babel/preset-react']
+                        }
+                    }
+                }
+            ]
+        }
+    };
+
+    // Build React
+    await runWebpack({
+        ...commonConfig,
+        entry: 'react',
+        output: {
+            path: tempDistDir,
+            filename: `react${suffix}.js`,
+            library: {
+                name: 'React',
+                type: 'umd',
+                umdNamedDefine: true
+            },
+            globalObject: 'this',
+            iife: true,
+            environment: {
+                arrowFunction: true,
+                const: true
+            }
+        },
+        plugins: [
+            new webpack.DefinePlugin({
+                'process.env.NODE_ENV': JSON.stringify(mode)
+            })
+        ]
+    });
+
+    // Build ReactDOM
+    if (isReact19OrHigher) {
+        const entryFile = await generateEntryFile(tempDir);
+        await runWebpack({
+            ...commonConfig,
+            entry: entryFile,
+            externals: {
+                'react': {
+                    root: 'React',
+                    commonjs: 'react',
+                    commonjs2: 'react',
+                    amd: 'react'
+                }
+            },
+            output: {
+                path: tempDistDir,
+                filename: `react-dom${suffix}.js`,
+                library: {
+                    name: 'ReactDOM',
+                    type: 'umd',
+                    umdNamedDefine: true,
+                    export: undefined
+                },
+                globalObject: 'this',
+                iife: true
+            },
+            plugins: [
+                new webpack.DefinePlugin({
+                    'process.env.NODE_ENV': JSON.stringify(mode)
+                })
+            ]
+        });
+    } else {
+        await runWebpack({
+            ...commonConfig,
+            entry: 'react-dom',
+            externals: {
+                'react': {
+                    root: 'React',
+                    commonjs: 'react',
+                    commonjs2: 'react',
+                    amd: 'react'
+                }
+            },
+            output: {
+                path: tempDistDir,
+                filename: `react-dom${suffix}.js`,
+                library: {
+                    name: 'ReactDOM',
+                    type: 'umd',
+                    umdNamedDefine: true
+                },
+                globalObject: 'this',
+                iife: true
+            },
+            plugins: [
+                new webpack.DefinePlugin({
+                    'process.env.NODE_ENV': JSON.stringify(mode)
+                })
+            ]
+        });
+    }
+}
+
 const reactPlugin = {
     name: 'react-copy',
     async buildStart() {
@@ -122,127 +240,24 @@ const reactPlugin = {
             mkdirSync(tempDir, { recursive: true });
             mkdirSync(tempDistDir, { recursive: true });
 
-            const commonConfig = {
-                mode: 'production',
-                optimization: {
-                    minimize: true,
-                    usedExports: true
-                },
-                resolve: {
-                    extensions: ['.js', '.jsx']
-                },
-                module: {
-                    rules: [
-                        {
-                            test: /\.jsx?$/,
-                            exclude: /node_modules/,
-                            use: {
-                                loader: 'babel-loader',
-                                options: {
-                                    presets: ['@babel/preset-react']
-                                }
-                            }
-                        }
-                    ]
-                }
-            };
+            // Build production files
+            await buildReactFiles('production', tempDistDir, tempDir);
+            
+            // Build development files
+            await buildReactFiles('development', tempDistDir, tempDir);
 
-            // 1. build files
-            await runWebpack({
-                ...commonConfig,
-                entry: 'react',
-                output: {
-                    path: tempDistDir,
-                    filename: 'react.production.min.js',
-                    library: {
-                        name: 'React',
-                        type: 'umd',
-                        umdNamedDefine: true
-                    },
-                    globalObject: 'this',
-                    iife: true,
-                    environment: {
-                        arrowFunction: true,
-                        const: true
-                    }
-                },
-                plugins: [
-                    new webpack.DefinePlugin({
-                        'process.env.NODE_ENV': JSON.stringify('production')
-                    })
-                ]
-            });
+            // Process production files (minify)
+            const reactProdContent = readFileSync(path.join(tempDistDir, 'react.production.min.js'), 'utf8');
+            const reactDomProdContent = readFileSync(path.join(tempDistDir, 'react-dom.production.min.js'), 'utf8');
 
-            if (isReact19OrHigher) { // react 19 added "ReactDomClient" which we need to merge back into "ReactDom"
-                const entryFile = await generateEntryFile(tempDir);
-                await runWebpack({
-                    ...commonConfig,
-                    entry: entryFile,
-                    externals: {
-                        'react': {
-                            root: 'React',        // <global>.React
-                            commonjs: 'react',    // require('react')
-                            commonjs2: 'react',   // require('react')
-                            amd: 'react'         // define(['react'], ...)
-                        }
-                    },                    
-                    output: {
-                        path: tempDistDir,
-                        filename: 'react-dom.production.min.js',
-                        library: {
-                            name: 'ReactDOM',
-                            type: 'umd',
-                            umdNamedDefine: true,
-                            export: undefined
-                        },
-                        globalObject: 'this',
-                        iife: true
-                    },
-                    plugins: [
-                        new webpack.DefinePlugin({
-                            'process.env.NODE_ENV': JSON.stringify('production')
-                        })
-                    ]
-                });
-            } else {
-                await runWebpack({
-                    ...commonConfig,
-                    entry: 'react-dom',
-                    externals: {
-                        'react': {
-                            root: 'React',        // <global>.React
-                            commonjs: 'react',    // require('react')
-                            commonjs2: 'react',   // require('react')
-                            amd: 'react'         // define(['react'], ...)
-                        }
-                    },                    
-                    output: {
-                        path: tempDistDir,
-                        filename: 'react-dom.production.min.js',
-                        library: {
-                            name: 'ReactDOM',
-                            type: 'umd',
-                            umdNamedDefine: true
-                        },
-                        globalObject: 'this',
-                        iife: true
-                    },
-                    plugins: [
-                        new webpack.DefinePlugin({
-                            'process.env.NODE_ENV': JSON.stringify('production')
-                        })
-                    ]
-                });
-            }
+            const minifiedReact = await minify(reactProdContent, terserConfig);
+            const minifiedReactDom = await minify(reactDomProdContent, terserConfig);
 
-            // 2. minify
-            const reactContent = readFileSync(path.join(tempDistDir, 'react.production.min.js'), 'utf8');
-            const reactDomContent = readFileSync(path.join(tempDistDir, 'react-dom.production.min.js'), 'utf8');
+            // Read development files (no minification)
+            const reactDevContent = readFileSync(path.join(tempDistDir, 'react.development.js'), 'utf8');
+            const reactDomDevContent = readFileSync(path.join(tempDistDir, 'react-dom.development.js'), 'utf8');
 
-            const minifiedReact = await minify(reactContent, terserConfig);
-            const minifiedReactDom = await minify(reactDomContent, terserConfig);
-
-            // 3. copy built umd files into dist
+            // Emit production files
             this.emitFile({
                 type: 'asset',
                 fileName: 'react.production.min.js',
@@ -253,6 +268,19 @@ const reactPlugin = {
                 type: 'asset',
                 fileName: 'react-dom.production.min.js',
                 source: `/*! react-dom.production.min.js v${version} */\n${minifiedReactDom.code}`
+            });
+
+            // Emit development files
+            this.emitFile({
+                type: 'asset',
+                fileName: 'react.development.js',
+                source: `/*! react.development.js v${version} */\n${reactDevContent}`
+            });
+
+            this.emitFile({
+                type: 'asset',
+                fileName: 'react-dom.development.js',
+                source: `/*! react-dom.development.js v${version} */\n${reactDomDevContent}`
             });
 
             rmSync(tempDir, { recursive: true, force: true });
