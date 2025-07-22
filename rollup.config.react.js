@@ -102,6 +102,9 @@ async function generateEntryFile(tempDir) {
         ${domOnlyMethods.map(method =>
         `export const ${method} = ReactDOM.${method};`
     ).join('\n')}
+
+        // export default
+        export default {${clientOnlyMethods.concat(domOnlyMethods).join(', ')}};
     `;
 
     const entryFile = path.join(tempDir, 'react-dom-entry.js');
