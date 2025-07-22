@@ -28,15 +28,15 @@
   ],
   "homepage": "https://github.com/lofcz/react19umd#readme",
   "devDependencies": {
-    "@babel/preset-react": "^7.26.3",
-    "babel-loader": "^9.2.1",
+    "@babel/preset-react": "^7.27.1",
+    "babel-loader": "^10.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "rimraf": "^6.0.1",
-    "rollup": "^4.41.1",
+    "rollup": "^4.45.1",
     "semver": "^7.7.2",
-    "terser": "^5.37.0",
-    "webpack": "^5.97.1"
+    "terser": "^5.43.1",
+    "webpack": "^5.100.2"
   },
   "dependencies": {
     "umd-react": "file:"
