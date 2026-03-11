@@ -75,13 +75,14 @@ async function generateEntryFile(tempDir) {
         
         // split methods from both modules
         const clientOnlyMethods = ['createRoot', 'hydrateRoot'];
+        const validIdentifierPattern = /^[$A-Z_a-z][0-9A-Z_a-z$]*$/;
         const domOnlyMethods = Object.keys(ReactDOM)
             .filter(key => 
                 key !== 'default' && 
+                validIdentifierPattern.test(key) &&
                 !clientOnlyMethods.includes(key)
             );
-            
-        const allExports = [...clientOnlyMethods, ...domOnlyMethods];
+
         process.stdout.write(JSON.stringify({ clientOnlyMethods, domOnlyMethods }));
     `;
 
@@ -150,8 +151,7 @@ async function buildReactFiles(mode, tempDistDir, tempDir) {
             filename: `react${suffix}.js`,
             library: {
                 name: 'React',
-                type: 'umd',
-                umdNamedDefine: true
+                type: 'umd'
             },
             globalObject: 'this',
             iife: true,
@@ -187,7 +187,6 @@ async function buildReactFiles(mode, tempDistDir, tempDir) {
                 library: {
                     name: 'ReactDOM',
                     type: 'umd',
-                    umdNamedDefine: true,
                     export: undefined
                 },
                 globalObject: 'this',
@@ -216,8 +215,7 @@ async function buildReactFiles(mode, tempDistDir, tempDir) {
                 filename: `react-dom${suffix}.js`,
                 library: {
                     name: 'ReactDOM',
-                    type: 'umd',
-                    umdNamedDefine: true
+                    type: 'umd'
                 },
                 globalObject: 'this',
                 iife: true
