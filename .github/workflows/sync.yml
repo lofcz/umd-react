@@ -14,10 +14,9 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: "24"
-          registry-url: "https://registry.npmjs.org"
 
       - name: Install semver
         run: npm install semver
@@ -57,8 +56,6 @@ jobs:
               let result = 'unchanged';
               if (isNewer && !isDowngradeFromPrerelease) {
                 console.log(`✅ Updating version from ${publishedVersion} to ${reactVersion}`);
-                pkg.version = reactVersion;
-                fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
                 core.setOutput('newVersion', reactVersion);
                 result = 'updated';
               } else {
@@ -71,6 +68,10 @@ jobs:
               console.error('Error in version check:', error);
               return 'unchanged';
             }
+
+      - name: Sync package version
+        if: steps.react-version.outputs.result == 'updated'
+        run: npm version "${{ steps.react-version.outputs.newVersion }}" --no-git-tag-version
 
       - name: Install dependencies
         if: steps.react-version.outputs.result == 'updated'
@@ -89,6 +90,6 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add package.json
+          git add package.json package-lock.json
           git commit -m "chore: update version to match React ${{ steps.react-version.outputs.newVersion }}"
           git push
