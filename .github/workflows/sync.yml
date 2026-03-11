@@ -40,6 +40,21 @@ jobs:
               
               const fs = require('fs');
               const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+              const tagName = `v${reactVersion}`;
+              
+              let releaseExists = false;
+              try {
+                await github.rest.repos.getReleaseByTag({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag: tagName,
+                });
+                releaseExists = true;
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
               
               console.log(`Current package.json version: "${pkg.version}"`);
               console.log(`Published npm version: "${publishedVersion}"`);
@@ -49,14 +64,27 @@ jobs:
               const isDowngradeFromPrerelease = publishedVersion.includes('-') && 
                 semver.coerce(publishedVersion) && 
                 semver.eq(semver.coerce(publishedVersion).version, reactVersion);
+              const needsVersionSync = pkg.version !== reactVersion;
+              const needsPublish = isNewer && !isDowngradeFromPrerelease;
+              const needsRelease = !releaseExists &&
+                (needsPublish || publishedVersion === reactVersion || needsVersionSync);
+              const needsBuild = needsPublish || needsRelease;
               
               console.log(`Is newer than published: ${isNewer}`);
               console.log(`Is downgrade from prerelease: ${isDowngradeFromPrerelease}`);
+              console.log(`Needs version sync: ${needsVersionSync}`);
+              console.log(`Release exists for ${tagName}: ${releaseExists}`);
+              console.log(`Needs publish: ${needsPublish}`);
+              console.log(`Needs release: ${needsRelease}`);
               
               let result = 'unchanged';
-              if (isNewer && !isDowngradeFromPrerelease) {
-                console.log(`✅ Updating version from ${publishedVersion} to ${reactVersion}`);
+              if (needsVersionSync || needsPublish || needsRelease) {
+                console.log(`✅ Preparing release ${reactVersion}`);
                 core.setOutput('newVersion', reactVersion);
+                core.setOutput('needsVersionSync', String(needsVersionSync));
+                core.setOutput('needsPublish', String(needsPublish));
+                core.setOutput('needsRelease', String(needsRelease));
+                core.setOutput('needsBuild', String(needsBuild));
                 result = 'updated';
               } else {
                 console.log(`❌ No update needed`);
@@ -70,26 +98,44 @@ jobs:
             }
 
       - name: Sync package version
-        if: steps.react-version.outputs.result == 'updated'
+        if: steps.react-version.outputs.needsVersionSync == 'true'
         run: npm version "${{ steps.react-version.outputs.newVersion }}" --no-git-tag-version
 
       - name: Install dependencies
-        if: steps.react-version.outputs.result == 'updated'
+        if: steps.react-version.outputs.needsBuild == 'true'
         run: npm ci
 
       - name: Build
-        if: steps.react-version.outputs.result == 'updated'
+        if: steps.react-version.outputs.needsBuild == 'true'
         run: npm run build
 
       - name: Publish to NPM
-        if: steps.react-version.outputs.result == 'updated'
+        if: steps.react-version.outputs.needsPublish == 'true'
         run: npm publish
 
       - name: Commit and push if changed
-        if: steps.react-version.outputs.result == 'updated'
+        if: steps.react-version.outputs.needsVersionSync == 'true'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add package.json package-lock.json
           git commit -m "chore: update version to match React ${{ steps.react-version.outputs.newVersion }}"
           git push
+
+      - name: Capture release commit SHA
+        if: steps.react-version.outputs.needsRelease == 'true'
+        id: release-sha
+        run: echo "value=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        if: steps.react-version.outputs.needsRelease == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.react-version.outputs.newVersion }}"
+          target_commitish: "${{ steps.release-sha.outputs.value }}"
+          generate_release_notes: true
+          files: |
+            dist/react.development.js
+            dist/react.production.min.js
+            dist/react-dom.development.js
+            dist/react-dom.production.min.js
