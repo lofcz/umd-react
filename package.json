@@ -1,6 +1,6 @@
 {
   "name": "umd-react",
-  "version": "19.2.6",
+  "version": "19.2.7",
   "description": "UMD builds for React 19+",
   "main": "index.js",
   "type": "module",
@@ -37,7 +37,7 @@
     "rollup": "^4.59.0"
   },
   "dependencies": {
-    "semver": "^7.7.4",
+    "semver": "^7.8.1",
     "umd-react": "file:"
   }
 }
