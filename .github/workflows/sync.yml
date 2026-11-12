@@ -101,26 +101,45 @@ jobs:
         if: steps.react-version.outputs.needsVersionSync == 'true'
         run: npm version "${{ steps.react-version.outputs.newVersion }}" --no-git-tag-version
 
-      - name: Install dependencies
+      - name: Install dependencies at target React version
         if: steps.react-version.outputs.needsBuild == 'true'
-        run: npm ci
+        run: |
+          V="${{ steps.react-version.outputs.newVersion }}"
+          npm install --save-exact --save-dev "react@$V" "react-dom@$V"
+
+      - name: Verify installed React matches target
+        if: steps.react-version.outputs.needsBuild == 'true'
+        run: |
+          V="${{ steps.react-version.outputs.newVersion }}"
+          [ "$(node -p "require('react/package.json').version")" = "$V" ]
+          [ "$(node -p "require('react-dom/package.json').version")" = "$V" ]
 
       - name: Build
         if: steps.react-version.outputs.needsBuild == 'true'
         run: npm run build
 
-      - name: Publish to NPM
-        if: steps.react-version.outputs.needsPublish == 'true'
-        run: npm publish
+      - name: Verify dist contains target React
+        if: steps.react-version.outputs.needsBuild == 'true'
+        run: |
+          V="${{ steps.react-version.outputs.newVersion }}"
+          for f in dist/*.js; do grep -qF "\"$V\"" "$f" || { echo "$f missing $V"; exit 1; }; done
 
       - name: Commit and push if changed
-        if: steps.react-version.outputs.needsVersionSync == 'true'
+        if: steps.react-version.outputs.needsBuild == 'true'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add package.json package-lock.json
-          git commit -m "chore: update version to match React ${{ steps.react-version.outputs.newVersion }}"
-          git push
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "chore: update version to match React ${{ steps.react-version.outputs.newVersion }}"
+            git push
+          fi
+
+      - name: Publish to NPM
+        if: steps.react-version.outputs.needsPublish == 'true'
+        run: npm publish
 
       - name: Capture release commit SHA
         if: steps.react-version.outputs.needsRelease == 'true'
